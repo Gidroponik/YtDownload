@@ -1,50 +1,36 @@
-# YtUrl
+# YtDownload
+
+**English** | **[Русский](README.ru.md)**
 
 YouTube video and audio downloader with Web UI and Telegram Bot, running entirely in Docker.
 
-YouTube загрузчик видео и аудио с веб-интерфейсом и Telegram ботом, полностью работающий в Docker.
-
----
-
-## Features / Возможности
+### Features
 
 - **Web UI** — minimalist dark interface, paste a link and download in one click
 - **Video** — MP4 format, top 5 quality options, automatic audio+video merging
 - **Audio** — MP3 download with quality selection
-- **Real-time progress** — SSE-based progress bar showing each download stage
+- **Real-time progress** — live progress bar showing each download stage
 - **Telegram Bot** — send a YouTube link, get a video back (best quality up to 50 MB, ideal for Shorts)
-- **Whitelist** — the first user to message the bot becomes the owner; all other users are silently ignored
+- **Whitelist** — the first user to message the bot becomes the owner; all others are silently ignored
 - **LAN access** — accessible from any device on your local network
 - **No dependencies** — everything runs inside Docker (yt-dlp, ffmpeg, Go, nginx)
 
----
+### Screenshots
 
-## Screenshots / Скриншоты
+| Web UI | Telegram Bot |
+|---|---|
+| ![Web UI](web_preview.jpg) | ![Telegram Bot](tg_preview.jpg) |
 
-### Web UI
+### Quick Start
 
-![Web UI](web_preview.jpg)
-
-### Telegram Bot
-
-![Telegram Bot](tg_preview.jpg)
-
----
-
-## Quick Start / Быстрый старт
-
-### 1. Clone / Клонировать
+**1. Clone**
 
 ```bash
 git clone https://github.com/Gidroponik/YtDownload.git
-cd YtUrl
+cd YtDownload
 ```
 
-### 2. Configure / Настроить
-
-Copy the example config and fill in your values:
-
-Скопируйте пример конфигурации и заполните:
+**2. Configure**
 
 ```bash
 cp .env.example .env
@@ -64,45 +50,33 @@ TELEGRAM_OWNER=
 | `TELEGRAM_BOT` | Telegram Bot API token from [@BotFather](https://t.me/BotFather). Leave empty to disable the bot |
 | `TELEGRAM_OWNER` | Auto-filled after the first user writes to the bot. Do not set manually |
 
-### 3. Run / Запустить
+**3. Run**
 
 ```bash
 docker compose up -d --build
 ```
 
-### 4. Open / Открыть
-
-Open in your browser:
+**4. Open**
 
 ```
 http://<your-ip>:<APP_PORT>
 ```
 
-For example: `http://192.168.1.100:3080`
+Example: `http://192.168.1.100:3080`
 
----
-
-## Telegram Bot / Telegram Бот
+### Telegram Bot
 
 If `TELEGRAM_BOT` is set in `.env`, a Telegram bot starts automatically alongside the app.
 
-Если `TELEGRAM_BOT` задан в `.env`, Telegram бот запускается автоматически вместе с приложением.
-
-**How it works / Как работает:**
+**How it works:**
 
 1. Send any YouTube link to the bot
-2. The bot finds the best MP4 quality that fits within Telegram's 50 MB file limit
+2. The bot finds the best MP4 quality that fits within Telegram's 50 MB limit
 3. Downloads the video, merges audio, and sends the file back
 
-**Whitelist / Белый список:**
+> **Whitelist:** The first user to message the bot is automatically registered as the owner. Their `telegram_id` is saved to `.env` and persists across container restarts. All messages from other users are silently ignored.
 
-> The first user to send a message to the bot is automatically registered as the owner. Their `telegram_id` is saved to `.env`. After that, all messages from other users are silently ignored. This persists across container restarts.
->
-> Первый пользователь, написавший боту, автоматически становится владельцем. Его `telegram_id` сохраняется в `.env`. После этого все сообщения от других пользователей молча игнорируются. Настройка сохраняется между перезапусками контейнера.
-
----
-
-## Architecture / Архитектура
+### Architecture
 
 ```
 ┌──────────────┐    ┌──────────────┐
@@ -119,13 +93,7 @@ If `TELEGRAM_BOT` is set in `.env`, a Telegram bot starts automatically alongsid
                     └──────────────┘
 ```
 
-- **Frontend**: Vue 3 + Vite + Tailwind CSS, served by nginx with reverse proxy to backend
-- **Backend**: Go (Gin), uses yt-dlp standalone binary + ffmpeg for downloading and processing
-- **Bot**: Long-polling Telegram bot built into the backend process
-
----
-
-## Tech Stack / Стек технологий
+### Tech Stack
 
 | Component | Technology |
 |---|---|
@@ -137,8 +105,6 @@ If `TELEGRAM_BOT` is set in `.env`, a Telegram bot starts automatically alongsid
 | Containerization | Docker, Docker Compose |
 | Reverse proxy | nginx |
 
----
-
-## License / Лицензия
+### License
 
 MIT
