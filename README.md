@@ -21,6 +21,15 @@ YouTube video and audio downloader with Web UI and Telegram Bot, running entirel
 |---|---|
 | ![Web UI](web_preview.jpg) | ![Telegram Bot](tg_preview.jpg) |
 
+### Prerequisites
+
+| Dependency | Download |
+|---|---|
+| **Docker Desktop** | [Windows](https://docs.docker.com/desktop/setup/install/windows-install/) / [Mac](https://docs.docker.com/desktop/setup/install/mac-install/) / [Linux](https://docs.docker.com/desktop/setup/install/linux/) |
+| **Git** | [git-scm.com](https://git-scm.com/downloads) |
+
+> Make sure Docker Desktop is **running** before proceeding.
+
 ### Quick Start
 
 **1. Clone**

@@ -21,6 +21,15 @@
 |---|---|
 | ![Web UI](web_preview.jpg) | ![Telegram Bot](tg_preview.jpg) |
 
+### Необходимое ПО
+
+| Зависимость | Скачать |
+|---|---|
+| **Docker Desktop** | [Windows](https://docs.docker.com/desktop/setup/install/windows-install/) / [Mac](https://docs.docker.com/desktop/setup/install/mac-install/) / [Linux](https://docs.docker.com/desktop/setup/install/linux/) |
+| **Git** | [git-scm.com](https://git-scm.com/downloads) |
+
+> Убедитесь, что Docker Desktop **запущен** перед началом установки.
+
 ### Быстрый старт
 
 **1. Клонировать**
