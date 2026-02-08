@@ -1,0 +1,22 @@
+FROM golang:1.22 AS builder
+WORKDIR /app
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+COPY backend/ .
+RUN CGO_ENABLED=0 go build -o yturl .
+
+FROM debian:bookworm-slim
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg ca-certificates curl && \
+    rm -rf /var/lib/apt/lists/*
+RUN arch=$(uname -m) && \
+    if [ "$arch" = "x86_64" ]; then \
+      curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp; \
+    elif [ "$arch" = "aarch64" ]; then \
+      curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64 -o /usr/local/bin/yt-dlp; \
+    fi && \
+    chmod +x /usr/local/bin/yt-dlp
+COPY --from=builder /app/yturl /usr/local/bin/yturl
+ENV GIN_MODE=release
+EXPOSE 8080
+CMD ["yturl"]

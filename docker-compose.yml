@@ -1,0 +1,21 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      - TELEGRAM_BOT=${TELEGRAM_BOT:-}
+      - TELEGRAM_OWNER=${TELEGRAM_OWNER:-}
+    volumes:
+      - ./.env:/app/.env
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "0.0.0.0:${APP_PORT:-3080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
