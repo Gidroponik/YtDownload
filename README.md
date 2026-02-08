@@ -30,7 +30,7 @@ YouTube video and audio downloader with Web UI and Telegram Bot, running entirel
 
 > Make sure Docker Desktop is **running** before proceeding.
 
-### Quick Start
+### Quick Start (build from source)
 
 **1. Clone**
 
@@ -72,6 +72,51 @@ http://<your-ip>:<APP_PORT>
 ```
 
 Example: `http://192.168.1.100:3080`
+
+### Quick Start (Docker Hub)
+
+Pre-built images are available on Docker Hub:
+
+| Image | Link |
+|---|---|
+| Backend | [gidro777/ytdownload-backend](https://hub.docker.com/r/gidro777/ytdownload-backend) |
+| Frontend | [gidro777/ytdownload-frontend](https://hub.docker.com/r/gidro777/ytdownload-frontend) |
+
+**1.** Create a `docker-compose.yml`:
+
+```yaml
+services:
+  backend:
+    image: gidro777/ytdownload-backend:latest
+    environment:
+      - TELEGRAM_BOT=${TELEGRAM_BOT:-}
+      - TELEGRAM_OWNER=${TELEGRAM_OWNER:-}
+    volumes:
+      - ./.env:/app/.env
+    restart: unless-stopped
+
+  frontend:
+    image: gidro777/ytdownload-frontend:latest
+    ports:
+      - "0.0.0.0:${APP_PORT:-3080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+```
+
+**2.** Create a `.env` file:
+
+```env
+APP_PORT=3080
+TELEGRAM_BOT=your_telegram_bot_token
+TELEGRAM_OWNER=
+```
+
+**3.** Run:
+
+```bash
+docker compose up -d
+```
 
 ### Telegram Bot
 

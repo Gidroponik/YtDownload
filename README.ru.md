@@ -30,7 +30,7 @@
 
 > Убедитесь, что Docker Desktop **запущен** перед началом установки.
 
-### Быстрый старт
+### Быстрый старт (сборка из исходников)
 
 **1. Клонировать**
 
@@ -72,6 +72,51 @@ http://<ваш-ip>:<APP_PORT>
 ```
 
 Пример: `http://192.168.1.100:3080`
+
+### Быстрый старт (Docker Hub)
+
+Готовые образы доступны на Docker Hub:
+
+| Образ | Ссылка |
+|---|---|
+| Backend | [gidro777/ytdownload-backend](https://hub.docker.com/r/gidro777/ytdownload-backend) |
+| Frontend | [gidro777/ytdownload-frontend](https://hub.docker.com/r/gidro777/ytdownload-frontend) |
+
+**1.** Создайте `docker-compose.yml`:
+
+```yaml
+services:
+  backend:
+    image: gidro777/ytdownload-backend:latest
+    environment:
+      - TELEGRAM_BOT=${TELEGRAM_BOT:-}
+      - TELEGRAM_OWNER=${TELEGRAM_OWNER:-}
+    volumes:
+      - ./.env:/app/.env
+    restart: unless-stopped
+
+  frontend:
+    image: gidro777/ytdownload-frontend:latest
+    ports:
+      - "0.0.0.0:${APP_PORT:-3080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+```
+
+**2.** Создайте файл `.env`:
+
+```env
+APP_PORT=3080
+TELEGRAM_BOT=токен_вашего_бота
+TELEGRAM_OWNER=
+```
+
+**3.** Запустите:
+
+```bash
+docker compose up -d
+```
 
 ### Telegram Бот
 
