@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/gin-contrib/cors"
@@ -30,7 +31,17 @@ func main() {
 		api.POST("/info", handlers.GetVideoInfo)
 		api.GET("/download", handlers.DownloadVideo)
 		api.GET("/file/:id", handlers.ServeFile)
+		api.GET("/thumb", handlers.ProxyThumbnail)
 	}
+
+	r.GET("/api/bot/info", func(c *gin.Context) {
+		username := bot.GetUsername()
+		if username == "" {
+			c.JSON(http.StatusOK, gin.H{"connected": false})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"connected": true, "username": username})
+	})
 
 	log.Println("Server starting on :8080")
 	if err := r.Run(":8080"); err != nil {

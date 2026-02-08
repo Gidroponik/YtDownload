@@ -2,15 +2,17 @@
 
 **English** | **[Русский](README.ru.md)**
 
-YouTube video and audio downloader with Web UI and Telegram Bot, running entirely in Docker.
+Video and audio downloader for **YouTube**, **TikTok** and **Instagram** with Web UI and Telegram Bot, running entirely in Docker.
 
 ### Features
 
+- **Multi-platform** — supports YouTube, TikTok and Instagram
 - **Web UI** — minimalist dark interface, paste a link and download in one click
 - **Video** — MP4 format, top 5 quality options, automatic audio+video merging
 - **Audio** — MP3 download with quality selection
 - **Real-time progress** — live progress bar showing each download stage
-- **Telegram Bot** — send a YouTube link, get a video back (best quality up to 50 MB, ideal for Shorts)
+- **Download history** — recent downloads stored in localStorage with re-download support
+- **Telegram Bot** — send a YouTube, TikTok or Instagram link, get a video back (best quality up to 50 MB, ideal for Shorts). Bot link is shown directly in the Web UI when connected
 - **Whitelist** — the first user to message the bot becomes the owner; all others are silently ignored
 - **LAN access** — accessible from any device on your local network
 - **No dependencies** — everything runs inside Docker (yt-dlp, ffmpeg, Go, nginx)
@@ -124,9 +126,11 @@ If `TELEGRAM_BOT` is set in `.env`, a Telegram bot starts automatically alongsid
 
 **How it works:**
 
-1. Send any YouTube link to the bot
+1. Send any YouTube, TikTok or Instagram link to the bot
 2. The bot finds the best MP4 quality that fits within Telegram's 50 MB limit
 3. Downloads the video, merges audio, and sends the file back
+
+> When the bot is connected, a Telegram link appears at the bottom of the Web UI for quick access.
 
 > **Whitelist:** The first user to message the bot is automatically registered as the owner. Their `telegram_id` is saved to `.env` and persists across container restarts. All messages from other users are silently ignored.
 

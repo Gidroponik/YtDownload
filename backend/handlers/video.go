@@ -2,16 +2,19 @@ package handlers
 
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"time"
+
+	"yturl/backend/platform"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -22,42 +25,14 @@ type InfoRequest struct {
 	Mode string `json:"mode"` // "video" or "audio"
 }
 
-type FormatInfo struct {
-	FormatID string `json:"formatId"`
-	Quality  string `json:"quality"`
-	Height   int    `json:"height,omitempty"`
-	Bitrate  int    `json:"bitrate,omitempty"`
-	Size     int64  `json:"size"`
-}
-
 type VideoInfoResponse struct {
-	ID        string       `json:"id"`
-	Title     string       `json:"title"`
-	Author    string       `json:"author"`
-	Duration  string       `json:"duration"`
-	Thumbnail string       `json:"thumbnail"`
-	Formats   []FormatInfo `json:"formats"`
-}
-
-type ytdlpInfo struct {
-	ID        string        `json:"id"`
-	Title     string        `json:"title"`
-	Uploader  string        `json:"uploader"`
-	Duration  float64       `json:"duration"`
-	Thumbnail string        `json:"thumbnail"`
-	Formats   []ytdlpFormat `json:"formats"`
-}
-
-type ytdlpFormat struct {
-	FormatID  string  `json:"format_id"`
-	Ext       string  `json:"ext"`
-	Height    int     `json:"height"`
-	Filesize  int64   `json:"filesize"`
-	FilesizeA int64   `json:"filesize_approx"`
-	VCodec    string  `json:"vcodec"`
-	ACodec    string  `json:"acodec"`
-	ABR       float64 `json:"abr"`
-	FPS       float64 `json:"fps"`
+	ID        string                `json:"id"`
+	Title     string                `json:"title"`
+	Author    string                `json:"author"`
+	Duration  string                `json:"duration"`
+	Thumbnail string                `json:"thumbnail"`
+	Platform  platform.Platform     `json:"platform"`
+	Formats   []platform.FormatInfo `json:"formats"`
 }
 
 type ProgressEvent struct {
@@ -86,23 +61,6 @@ func formatDuration(seconds float64) string {
 	return fmt.Sprintf("%d:%02d", m, s)
 }
 
-func fetchYtdlpInfo(url string) (*ytdlpInfo, error) {
-	cmd := exec.Command("yt-dlp", "-j", "--no-warnings", url)
-	output, err := cmd.Output()
-	if err != nil {
-		errMsg := "unknown error"
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			errMsg = string(exitErr.Stderr)
-		}
-		return nil, fmt.Errorf("%s", errMsg)
-	}
-	var info ytdlpInfo
-	if err := json.Unmarshal(output, &info); err != nil {
-		return nil, fmt.Errorf("failed to parse video info")
-	}
-	return &info, nil
-}
-
 func GetVideoInfo(c *gin.Context) {
 	var req InfoRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -115,18 +73,25 @@ func GetVideoInfo(c *gin.Context) {
 		mode = "video"
 	}
 
-	info, err := fetchYtdlpInfo(req.URL)
+	p, _ := platform.DetectPlatform(req.URL)
+
+	info, err := platform.FetchInfo(req.URL)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get video info: %v", err)})
 		return
 	}
 
-	var formats []FormatInfo
-
+	var formats []platform.FormatInfo
 	if mode == "audio" {
-		formats = buildAudioFormats(info)
+		formats = platform.BuildAudioFormats(p, info)
 	} else {
-		formats = buildVideoFormats(info)
+		formats = platform.BuildVideoFormats(p, info)
+	}
+
+	thumbnail := info.Thumbnail
+	if p == platform.Instagram && thumbnail != "" {
+		// Instagram CDN blocks cross-origin — proxy through our API
+		thumbnail = "/api/video/thumb?url=" + base64.URLEncoding.EncodeToString([]byte(thumbnail))
 	}
 
 	c.JSON(http.StatusOK, VideoInfoResponse{
@@ -134,110 +99,10 @@ func GetVideoInfo(c *gin.Context) {
 		Title:     info.Title,
 		Author:    info.Uploader,
 		Duration:  formatDuration(info.Duration),
-		Thumbnail: info.Thumbnail,
+		Thumbnail: thumbnail,
+		Platform:  p,
 		Formats:   formats,
 	})
-}
-
-func buildVideoFormats(info *ytdlpInfo) []FormatInfo {
-	var videoFormats []ytdlpFormat
-	for _, f := range info.Formats {
-		if f.Ext != "mp4" {
-			continue
-		}
-		if f.VCodec == "" || f.VCodec == "none" {
-			continue
-		}
-		if f.Height <= 0 {
-			continue
-		}
-		videoFormats = append(videoFormats, f)
-	}
-
-	sort.Slice(videoFormats, func(i, j int) bool {
-		return videoFormats[i].Height > videoFormats[j].Height
-	})
-
-	seen := map[int]bool{}
-	var unique []ytdlpFormat
-	for _, f := range videoFormats {
-		if seen[f.Height] {
-			continue
-		}
-		seen[f.Height] = true
-		unique = append(unique, f)
-	}
-
-	if len(unique) > 5 {
-		unique = unique[:5]
-	}
-
-	var formats []FormatInfo
-	for _, f := range unique {
-		size := f.Filesize
-		if size <= 0 {
-			size = f.FilesizeA
-		}
-		formats = append(formats, FormatInfo{
-			FormatID: f.FormatID,
-			Quality:  fmt.Sprintf("%dp", f.Height),
-			Height:   f.Height,
-			Size:     size,
-		})
-	}
-	return formats
-}
-
-func buildAudioFormats(info *ytdlpInfo) []FormatInfo {
-	var audioFormats []ytdlpFormat
-	for _, f := range info.Formats {
-		if f.ACodec == "" || f.ACodec == "none" {
-			continue
-		}
-		// Audio-only formats
-		if f.VCodec != "" && f.VCodec != "none" {
-			continue
-		}
-		if f.ABR <= 0 {
-			continue
-		}
-		audioFormats = append(audioFormats, f)
-	}
-
-	sort.Slice(audioFormats, func(i, j int) bool {
-		return audioFormats[i].ABR > audioFormats[j].ABR
-	})
-
-	// Deduplicate by bitrate (rounded to nearest 10)
-	seen := map[int]bool{}
-	var unique []ytdlpFormat
-	for _, f := range audioFormats {
-		key := int(f.ABR/10) * 10
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		unique = append(unique, f)
-	}
-
-	if len(unique) > 5 {
-		unique = unique[:5]
-	}
-
-	var formats []FormatInfo
-	for _, f := range unique {
-		size := f.Filesize
-		if size <= 0 {
-			size = f.FilesizeA
-		}
-		formats = append(formats, FormatInfo{
-			FormatID: f.FormatID,
-			Quality:  fmt.Sprintf("%.0f kbps", f.ABR),
-			Bitrate:  int(f.ABR),
-			Size:     size,
-		})
-	}
-	return formats
 }
 
 func DownloadVideo(c *gin.Context) {
@@ -254,6 +119,8 @@ func DownloadVideo(c *gin.Context) {
 		mode = "video"
 	}
 
+	p, _ := platform.DetectPlatform(videoURL)
+
 	// SSE headers
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
@@ -269,30 +136,20 @@ func DownloadVideo(c *gin.Context) {
 
 	fileID := uuid.New().String()
 	ext := "mp4"
-	var args []string
 
 	if mode == "audio" {
 		ext = "mp3"
-		tmpPath := filepath.Join(os.TempDir(), fileID+".%(ext)s")
 		sendEvent(ProgressEvent{Stage: "downloading_audio", Percent: 0})
-		args = []string{
-			"--newline", "--progress", "--no-warnings", "--no-part",
-			"-f", formatID,
-			"-x", "--audio-format", "mp3",
-			"-o", tmpPath,
-			videoURL,
-		}
 	} else {
-		tmpPath := filepath.Join(os.TempDir(), fileID+".mp4")
 		sendEvent(ProgressEvent{Stage: "downloading_video", Percent: 0})
-		args = []string{
-			"--newline", "--progress", "--no-warnings", "--no-part",
-			"-f", fmt.Sprintf("%s+bestaudio[ext=m4a]/%s+bestaudio/%s", formatID, formatID, formatID),
-			"--merge-output-format", "mp4",
-			"-o", tmpPath,
-			videoURL,
-		}
 	}
+
+	tmpPath := filepath.Join(os.TempDir(), fileID+".%(ext)s")
+	if mode == "video" {
+		tmpPath = filepath.Join(os.TempDir(), fileID+".mp4")
+	}
+
+	args := platform.BuildDownloadArgs(p, formatID, tmpPath, videoURL, mode)
 
 	ctx := c.Request.Context()
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
@@ -387,4 +244,31 @@ func ServeFile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNotFound, gin.H{"error": "File not found or expired"})
+}
+
+func ProxyThumbnail(c *gin.Context) {
+	encoded := c.Query("url")
+	if encoded == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "url required"})
+		return
+	}
+
+	raw, err := base64.URLEncoding.DecodeString(encoded)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid url"})
+		return
+	}
+	imgURL := string(raw)
+
+	resp, err := http.Get(imgURL)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch thumbnail"})
+		return
+	}
+	defer resp.Body.Close()
+
+	c.Header("Content-Type", resp.Header.Get("Content-Type"))
+	c.Header("Cache-Control", "public, max-age=3600")
+	c.Status(resp.StatusCode)
+	io.Copy(c.Writer, resp.Body)
 }
